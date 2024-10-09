@@ -48,7 +48,7 @@ cd github-telegram-notif
 Install the required modules:
 
 ```bash
-npm install
+npm install axis dotenv
 ```
 
 ## Setting Up Environment Variables
