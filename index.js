@@ -57,62 +57,62 @@ const fetchInitialRepos = async (username) => {
 
 const checkRepoUpdates = async () => {
     log("🔄 Checking for repository updates...");
-    try {
-        for (const repoUrl of REPO_URLS) {
-            const repoParts = repoUrl.split('/');
-            const REPO_OWNER = repoParts[3];
-            const REPO_NAME = repoParts[4];
+    const repoChecks = REPO_URLS.map(async (repoUrl) => {
+        const repoParts = repoUrl.split('/');
+        const REPO_OWNER = repoParts[3];
+        const REPO_NAME = repoParts[4];
 
-            try {
-                const commitsResponse = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits`, {
-                    headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                const latestCommit = commitsResponse.data[0];
-
-                if (!repoStates[repoUrl] || latestCommit.sha !== repoStates[repoUrl]) {
-                    const message = `🔄 Repository *${REPO_NAME}* has been updated: ${latestCommit.commit.message}`;
-                    sendMessage(message);
-                    repoStates[repoUrl] = latestCommit.sha;
-                    log(`📣 Notification sent: ${REPO_NAME} updated`);
-                } else {
-                    log(`🔇 No updates for ${REPO_NAME}`);
+        try {
+            const commitsResponse = await axios.get(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/commits`, {
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
                 }
-            } catch (error) {
-                log(`❌ Error fetching commits for ${REPO_NAME}: ${error.message}`);
-            }
-        }
+            });
+            const latestCommit = commitsResponse.data[0];
 
-        for (const profileUrl of PROFILE_URLS) {
-            const username = profileUrl.split('/').pop();
-            try {
-                const reposResponse = await axios.get(`https://api.github.com/users/${username}/repos`, {
-                    headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
-                        'Accept': 'application/vnd.github.v3+json'
-                    }
-                });
-                const currentRepos = reposResponse.data.map(repo => repo.name);
-
-                currentRepos.forEach(repo => {
-                    if (!existingRepos.has(repo)) {
-                        const message = `✨ New repository created by *${username}*: ${repo}`;
-                        sendMessage(message);
-                        existingRepos.add(repo);
-                        log(`📣 Notification sent: New repository ${repo} by ${username}`);
-                    } else {
-                        log(`🔒 Repository ${repo} already exists.`);
-                    }
-                });
-            } catch (error) {
-                log(`❌ Error fetching repositories for ${username}: ${error.message}`);
+            if (!repoStates[repoUrl] || latestCommit.sha !== repoStates[repoUrl]) {
+                const message = `🔄 Repository *${REPO_NAME}* has been updated: ${latestCommit.commit.message}`;
+                sendMessage(message);
+                repoStates[repoUrl] = latestCommit.sha;
+                log(`📣 Notification sent: ${REPO_NAME} updated`);
+            } else {
+                log(`🔇 No updates for ${REPO_NAME}`);
             }
+        } catch (error) {
+            log(`❌ Error fetching commits for ${REPO_NAME}: ${error.message}`);
         }
-    } catch (error) {
-        log('❌ Error fetching updates: ' + error.message);
-    }
+    });
+
+    await Promise.all(repoChecks); 
+
+    const profileChecks = PROFILE_URLS.map(async (profileUrl) => {
+        const username = profileUrl.split('/').pop();
+        try {
+            const reposResponse = await axios.get(`https://api.github.com/users/${username}/repos`, {
+                headers: {
+                    'Authorization': `token ${GITHUB_TOKEN}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            const currentRepos = reposResponse.data.map(repo => repo.name);
+
+            currentRepos.forEach(repo => {
+                if (!existingRepos.has(repo)) {
+                    const message = `✨ New repository created by *${username}*: ${repo}`;
+                    sendMessage(message);
+                    existingRepos.add(repo);
+                    log(`📣 Notification sent: New repository ${repo} by ${username}`);
+                } else {
+                    log(`🔒 Repository ${repo} already exists.`);
+                }
+            });
+        } catch (error) {
+            log(`❌ Error fetching repositories for ${username}: ${error.message}`);
+        }
+    });
+
+    await Promise.all(profileChecks); 
 };
 
 const initializeBot = async () => {
@@ -120,7 +120,7 @@ const initializeBot = async () => {
         const username = profileUrl.split('/').pop();
         await fetchInitialRepos(username);
     }
-    setInterval(checkRepoUpdates, 300000);
+    setInterval(checkRepoUpdates, 300000); 
     log("✅ Bot has started and is monitoring updates...");
 };
 
